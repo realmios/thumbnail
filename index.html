@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tool Tạo Ảnh Thumbnail Phong Cách Realm iOS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --primary-bg: #fafafa;
+            --text-title: #000000;
+            --text-desc: #373435;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        /* --- CỘT ĐIỀU KHIỂN --- */
+        .controls {
+            width: 350px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+
+        .control-group h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #333;
+            border-left: 4px solid #6200ea;
+            padding-left: 10px;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input[type="text"], textarea, select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        input[type="file"] {
+            font-size: 12px;
+        }
+
+        .gradient-options {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .grad-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 2px solid #ddd;
+            cursor: pointer;
+        }
+
+        .btn-download {
+            background-color: #6200ea;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: auto;
+            transition: 0.3s;
+        }
+        .btn-download:hover { background-color: #3700b3; }
+
+        /* --- KHUNG PREVIEW --- */
+        .preview-area {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #ccc;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Canvas giả lập 1920x1080 */
+        #canvas-render {
+            width: 1920px;
+            height: 1080px;
+            background-color: var(--primary-bg);
+            position: relative;
+            transform-origin: center;
+            box-shadow: 0 0 50px rgba(0,0,0,0.2);
+            overflow: hidden;
+            /* Flex layout cho canvas */
+            display: flex;
+            flex-direction: row;
+        }
+
+        /* Lớp Pattern nền */
+        .bg-pattern {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.4;
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHBhdGggZD0iTTAgMGgxMDB2MTAwSDB6IiBmaWxsPSJub25lIi8+PHBhdGggZD0iTTAgNjBDMjAgNjAgNDAgNDAgNjAgNDBzNDAgMjAgNDAgMjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2QzZDNkMyIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9zdmc+'); /* Pattern giả lập dạng sóng */
+            background-size: 500px;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Branding (Logo góc trái) */
+        .brand-container {
+            position: absolute;
+            top: 130px; /* Dựa trên XML scale */
+            left: 130px;
+            display: flex;
+            align-items: center;
+            gap: 25px;
+            z-index: 10;
+        }
+
+        .brand-logo {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            border-radius: 16px;
+        }
+
+        .brand-text {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            font-size: 45px;
+            color: #000;
+        }
+
+        /* Nội dung chính */
+        .content-left {
+            width: 60%;
+            padding-left: 130px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .main-title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            font-size: 72px; /* Scale từ 24pt trong XML lên 1920px */
+            line-height: 1.2;
+            color: var(--text-title);
+            margin-bottom: 30px;
+            white-space: pre-wrap;
+        }
+
+        .description {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 400;
+            font-size: 38px; /* Scale từ 14pt */
+            color: var(--text-desc);
+            line-height: 1.4;
+            width: 90%;
+            white-space: pre-wrap;
+        }
+
+        /* Icon bên phải */
+        .icon-right {
+            width: 40%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            position: relative;
+        }
+
+        #main-icon-img {
+            width: 600px; /* Scale từ icon gốc */
+            height: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.1));
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <h2>Cấu Hình Ảnh</h2>
+
+        <div class="control-group">
+            <h3>1. Nền & Hoa văn</h3>
+            <label>Chọn kiểu nền:</label>
+            <div class="gradient-options">
+                <div class="grad-btn" style="background: #fafafa" onclick="setBg('#fafafa')"></div>
+                <div class="grad-btn" style="background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%)" onclick="setBg('linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%)')"></div>
+                <div class="grad-btn" style="background: linear-gradient(120deg, #fdfbfb 0%, #ebedee 100%)" onclick="setBg('linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%)')"></div>
+                <div class="grad-btn" style="background: linear-gradient(to top, #fff1eb 0%, #ace0f9 100%)" onclick="setBg('linear-gradient(to top, #fff1eb 0%, #ace0f9 100%)')"></div>
+            </div>
+            <label style="margin-top:10px;">Upload Hoa văn (Pattern):</label>
+            <input type="file" id="inp-pattern" accept="image/*">
+            <label>Độ mờ Pattern:</label>
+            <input type="range" id="inp-pattern-opacity" min="0" max="1" step="0.1" value="0.4">
+        </div>
+
+        <div class="control-group">
+            <h3>2. Logo & Brand</h3>
+            <label>Tên Brand (Góc trái):</label>
+            <input type="text" id="inp-brand-text" value="Realm iOS">
+            <label>Logo Brand (Ảnh nhỏ):</label>
+            <input type="file" id="inp-brand-logo" accept="image/*">
+        </div>
+
+        <div class="control-group">
+            <h3>3. Nội dung chính</h3>
+            <label>Tiêu đề chính:</label>
+            <textarea id="inp-title" rows="3">Tổng hợp cấu hình lên Premium các App cho ShadowRocket mới nhất</textarea>
+            
+            <label>Font Tiêu đề (Google Font Name):</label>
+            <input type="text" id="inp-font-title" value="Poppins" placeholder="VD: Roboto, Open Sans...">
+            <button onclick="loadCustomFont('title')" style="margin-top:5px; cursor:pointer;">Áp dụng Font</button>
+
+            <label style="margin-top:10px;">Mô tả chi tiết:</label>
+            <textarea id="inp-desc" rows="3">Tổng hợp các dạng cấu hình dành cho ShadowRocket giúp kích hoạt các tính năng Premium của nhiều ứng dụng phổ biến.</textarea>
+            
+            <label>Font Mô tả:</label>
+            <input type="text" id="inp-font-desc" value="Poppins" placeholder="VD: Arial, Montserrat...">
+            <button onclick="loadCustomFont('desc')" style="margin-top:5px; cursor:pointer;">Áp dụng Font</button>
+        </div>
+
+        <div class="control-group">
+            <h3>4. Hình minh họa (Phải)</h3>
+            <label>Upload ảnh icon lớn:</label>
+            <input type="file" id="inp-main-icon" accept="image/*">
+            <label>Kích thước icon (%):</label>
+            <input type="range" id="inp-icon-scale" min="50" max="150" value="100">
+        </div>
+
+        <button class="btn-download" onclick="downloadImage()">TẢI ẢNH XUỐNG (PNG)</button>
+    </div>
+
+    <div class="preview-area" id="preview-container">
+        <div id="canvas-render">
+            <div class="bg-pattern" id="render-pattern"></div>
+
+            <div class="brand-container">
+                <img src="https://via.placeholder.com/150/6200ea/ffffff?text=R" id="render-brand-logo" class="brand-logo" alt="logo">
+                <div id="render-brand-text" class="brand-text">Realm iOS</div>
+            </div>
+
+            <div class="content-left">
+                <div id="render-title" class="main-title">Tổng hợp cấu hình lên Premium các App cho ShadowRocket mới nhất</div>
+                <div id="render-desc" class="description">Tổng hợp các dạng cấu hình dành cho ShadowRocket giúp kích hoạt các tính năng Premium của nhiều ứng dụng phổ biến.</div>
+            </div>
+
+            <div class="icon-right">
+                <img src="https://via.placeholder.com/500/000000/FFFFFF?text=ICON" id="main-icon-img" alt="icon">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- XỬ LÝ JS ---
+
+        // 1. Tự động scale khung preview cho vừa màn hình
+        function resizePreview() {
+            const container = document.getElementById('preview-container');
+            const canvas = document.getElementById('canvas-render');
+            const scaleX = container.clientWidth / 1920;
+            const scaleY = container.clientHeight / 1080;
+            const scale = Math.min(scaleX, scaleY) * 0.95; // 0.95 để chừa lề
+            
+            canvas.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', resizePreview);
+        window.addEventListener('load', resizePreview);
+
+        // 2. Cập nhật Text
+        document.getElementById('inp-brand-text').addEventListener('input', (e) => {
+            document.getElementById('render-brand-text').innerText = e.target.value;
+        });
+        document.getElementById('inp-title').addEventListener('input', (e) => {
+            document.getElementById('render-title').innerText = e.target.value;
+        });
+        document.getElementById('inp-desc').addEventListener('input', (e) => {
+            document.getElementById('render-desc').innerText = e.target.value;
+        });
+
+        // 3. Xử lý Upload ảnh (Logo, Icon, Pattern)
+        function handleImageUpload(inputId, imgId, isBg = false) {
+            document.getElementById(inputId).addEventListener('change', function(e) {
+                if (e.target.files && e.target.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        if (isBg) {
+                            document.getElementById(imgId).style.backgroundImage = `url(${e.target.result})`;
+                            document.getElementById(imgId).style.backgroundSize = 'cover';
+                        } else {
+                            document.getElementById(imgId).src = e.target.result;
+                        }
+                    }
+                    reader.readAsDataURL(e.target.files[0]);
+                }
+            });
+        }
+
+        handleImageUpload('inp-brand-logo', 'render-brand-logo');
+        handleImageUpload('inp-main-icon', 'main-icon-img');
+        handleImageUpload('inp-pattern', 'render-pattern', true);
+
+        // 4. Chỉnh kích thước icon
+        document.getElementById('inp-icon-scale').addEventListener('input', (e) => {
+            const width = 600 * (e.target.value / 100);
+            document.getElementById('main-icon-img').style.width = width + 'px';
+        });
+
+        // 5. Chỉnh độ mờ Pattern
+        document.getElementById('inp-pattern-opacity').addEventListener('input', (e) => {
+            document.getElementById('render-pattern').style.opacity = e.target.value;
+        });
+
+        // 6. Đổi nền
+        function setBg(colorOrGrad) {
+            document.getElementById('canvas-render').style.background = colorOrGrad;
+        }
+
+        // 7. Load Font Tùy chỉnh (Google Fonts)
+        function loadCustomFont(type) {
+            const fontName = document.getElementById(type === 'title' ? 'inp-font-title' : 'inp-font-desc').value;
+            if(!fontName) return;
+
+            // Tạo link tag động
+            const link = document.createElement('link');
+            link.href = `https://fonts.googleapis.com/css2?family=${fontName.replace(/ /g, '+')}:wght@400;600;700&display=swap`;
+            link.rel = 'stylesheet';
+            document.head.appendChild(link);
+
+            // Áp dụng font
+            if(type === 'title') {
+                document.getElementById('render-title').style.fontFamily = `'${fontName}', sans-serif`;
+            } else {
+                document.getElementById('render-desc').style.fontFamily = `'${fontName}', sans-serif`;
+            }
+        }
+
+        // 8. Xuất ảnh (Download)
+        function downloadImage() {
+            const canvasDiv = document.getElementById('canvas-render');
+            
+            // Tạm thời reset transform để chụp ảnh kích thước gốc 1920x1080
+            const currentTransform = canvasDiv.style.transform;
+            canvasDiv.style.transform = 'scale(1)';
+            document.body.style.overflow = 'hidden'; // Tránh thanh cuộn nhảy
+
+            html2canvas(canvasDiv, {
+                width: 1920,
+                height: 1080,
+                scale: 1, // Giữ nguyên scale 1 vì div đã là 1920px
+                useCORS: true // Cho phép load ảnh cross-origin nếu có
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'thiet-ke-realm-ios.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                
+                // Trả lại trạng thái xem trước
+                canvasDiv.style.transform = currentTransform;
+                document.body.style.overflow = 'auto';
+            });
+        }
+    </script>
+</body>
+</html>
